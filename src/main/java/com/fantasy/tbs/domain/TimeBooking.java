@@ -1,6 +1,7 @@
 package com.fantasy.tbs.domain;
 
 import java.io.Serializable;
+import java.time.LocalDate;
 import java.time.ZonedDateTime;
 import javax.persistence.*;
 import org.hibernate.annotations.Cache;
@@ -64,6 +65,10 @@ public class TimeBooking implements Serializable {
 
     public void setPersonalNumber(String personalNumber) {
         this.personalNumber = personalNumber;
+    }
+
+    public LocalDate getLocalDate() {
+        return booking.toLocalDate();
     }
 
     // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here

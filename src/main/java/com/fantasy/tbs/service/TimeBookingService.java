@@ -4,6 +4,7 @@ import com.fantasy.tbs.domain.TimeBookDTO;
 import com.fantasy.tbs.domain.TimeBooking;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Service Interface for managing {@link TimeBooking}.
@@ -53,4 +54,19 @@ public interface TimeBookingService {
      * @param timeBookDTO
      */
     void bookTime(TimeBookDTO timeBookDTO);
+
+    /**
+     * Get the working hours of an employee
+     *
+     * @param personalNumber of an employee
+     * @return the working hours of an employee in minutes
+     */
+    Long getWorkingHours(String personalNumber);
+
+    /**
+     * Finds set of personal numbers of employees
+     * with correct time bookings (2) for current day
+     * @return set of personal numbers
+     */
+    Set<String> findEmployeesWithCorrectBooking();
 }

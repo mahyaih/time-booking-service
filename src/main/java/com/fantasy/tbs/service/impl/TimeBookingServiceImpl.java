@@ -5,12 +5,17 @@ import com.fantasy.tbs.domain.TimeBooking;
 import com.fantasy.tbs.repository.TimeBookingRepository;
 import com.fantasy.tbs.service.TimeBookingService;
 import com.fantasy.tbs.service.mapper.TimeBookMapper;
-import java.util.List;
-import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
+import java.util.*;
+
+import static java.util.stream.Collectors.groupingBy;
 
 /**
  * Service Implementation for managing {@link TimeBooking}.
@@ -79,5 +84,55 @@ public class TimeBookingServiceImpl implements TimeBookingService {
     @Override
     public void bookTime(TimeBookDTO timeBookDTO) {
         timeBookingRepository.save(timeBookMapper.toTimeBooking(timeBookDTO));
+    }
+
+    @Override
+    public Long getWorkingHours(String personalNumber) {
+        log.debug("Request to get working hours for personal number: {}", personalNumber);
+        // improvement: working time should be filtered by date range
+        var timeBookings = timeBookingRepository.findByPersonalNumber(personalNumber);
+        var timeBookingsPerDay = timeBookings.stream().collect(groupingBy(TimeBooking::getLocalDate));
+        var workingMinutes = 0L;
+        for (final LocalDate localDate : timeBookingsPerDay.keySet()) {
+            workingMinutes += calculateWorkMinutes(localDate, timeBookingsPerDay.get(localDate));
+        }
+        return workingMinutes / 60;
+    }
+
+    @Override
+    public Set<String> findEmployeesWithCorrectBooking() {
+        var timeBookings = timeBookingRepository
+            .findByBookingAfter(LocalDate.now().atStartOfDay().atZone(ZoneId.systemDefault()));
+
+        var timeBookingsPerEmployee = timeBookings.stream()
+            .collect(groupingBy(TimeBooking::getPersonalNumber));
+
+        Set<String> employeesWithTwoBookings = new HashSet<>();
+        for (Map.Entry<String, List<TimeBooking>> entry : timeBookingsPerEmployee.entrySet()) {
+            // assumption: 2 bookings (check-in and check-out) are number of correct bookings
+            if (entry.getValue().size() == 2) {
+                employeesWithTwoBookings.add(entry.getKey());
+            } else {
+                log.warn("Employee with personal number: {} has incorrect number of bookings: {}",
+                    entry.getKey(), entry.getValue().size());
+            }
+        }
+
+        log.info("Found {} of employees with correct booking times.", employeesWithTwoBookings);
+        return employeesWithTwoBookings;
+    }
+
+    /**
+     * Assumption: 2 bookings (check-in and check-out) are number of correct bookings
+     * this can be improved to calculate time when size is more than 2
+     * or it can add a default work time for that day if one time booking exist
+     */
+    private Long calculateWorkMinutes(LocalDate localDate, List<TimeBooking> timeBookings) {
+        if (timeBookings.size() != 2) {
+            log.warn("Can not calculate working time for day: {} because of wrong number of bookings: {}",
+                localDate, timeBookings.size());
+        }
+
+        return Math.abs(ChronoUnit.MINUTES.between(timeBookings.get(0).getBooking(), timeBookings.get(1).getBooking()));
     }
 }
